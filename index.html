@@ -1,0 +1,116 @@
+<html>
+
+<body>
+
+<pre>
+TODO: highlight.js
+</pre>
+
+<pre>
+
+0. Cover slide for screen before talk: a "beautiful destination" picture chosen by neural net?
+
+1. Intro - me, BD. contact details.
+ - not talk too much about BD specifically because my talk is more about the more general things I've encountered,
+   though there will be some details about what we do in the talk because its not secret secret.
+
+2. describing existing processes in shake
+
+The environment when I arrived:
+ * core haskell product built by Makefile and deployed via apt
+ * python based projects - history of experimental data analysis rather 
+   than production code. some of this needed to become production,
+   so wanted things like productible builds.
+ * other projects appearing ad-hoc
+
+Note that this isn't intended to be some canonical use of Shake - 
+it's how it seemed to me to be a (not the) right way to do it.
+
+Two uses of shake:
+
+ *  the small one:
+   took a small piece of the Makefile which was awkward and
+   replaced it with shake.
+
+  TODO: show the old code
+  What was awkward about this?
+
+  What couldn't we express in Make that we can express in shake?
+  How did we express this in shake? 
+    - show shake code
+    - how it fits into Makefile - have to build shake each time or
+       require it as a pre-req. this is cached though.
+
+ * bigger use:
+    building everything.
+    on the TODO list to do "something" for a long time, but
+     catalyst was new junior sys admin starting and me having
+     to explain our processes - I decided I'd rather write it
+     down in machine readable form rather than English.
+
+    what are the kinds of things we're building?
+      - debian packages
+      - docker images
+      - test "certifications" - describe this later
+
+    this only happened in the last few weeks. payoffs so far:
+      devs can build "official" style production releases on
+      their machines. can re-use parts of CI/production infrastrucutre
+      to stand up fuller test environments on their local
+      machines.
+   part of move towards a mono-repo -  change some docker file
+     because we need a different compiler, for example, and
+     we can version that together with the code that needs
+     the different compiler (the monorepo part) and we can
+     build without too much redundancy
+
+   test certifications - track which tests have run (at a
+     big-chunk scale - because eg don't stand up a new DB every
+     
+     ) 
+
+3. ghcjs vs ghc
+     - generally very good
+     - #ifdef build ickiness that I think can be
+       entirely replaced - see my comment: 
+       https://www.reddit.com/r/haskell/comments/56ucmt/how_do_you_structure_web_projects_that_share/d8n6xcj/
+         - Functor style types - an interesting variation on the "what text type to use?"
+         - poor use of #ifdef to simulate files.
+
+     - move away from talking about a "frontend" and a "backend" - it's
+       single application running in a distributed environment where
+       some components have one runtime and others have a different runtime.
+        - version together, code together.
+
+     - spock+json to communicate - *BUT* this is not an "API"
+        - move to shoving haskell data values around that are "command" objects
+       . we serialise to JSON but
+       we could serialise to anything. JSON is historical and
+       I don't personally feel a huge pressure to move away from
+       but it's not a core thing: most of our JSON is derive Generic,
+       and we could derive another format.
+       There is no "API" spec - these are communications within the
+         same version of the app and by definition (or by type checking ;)
+         will work together.
+
+(aside:
+     - separately there's a lot of REST-ish API interactions: 
+        - we talk to third party services like facebook/instagram, openstreetmap
+        - python/haskell components communicate over HTTP
+)
+
+4. database testing / postgres subset tool
+
+  - tool that didn't do what I want - take a big DB and
+     output some subset of it that can be restored fast.
+  - two kinds of fixpoints: SQL fixpoints - there is "expanding" sql fixpoint stuff but not "shrinking" style
+                            Haskell mdo fixpoint - recursive value but need to grab information from other sources when doing it - from the config file for eg. overridden foreign keys, and from the database itself
+  - url - "public" but no licence so you can't really use it. would like to fix that.
+  - database subsetting as testing tool: giving a different database to the
+    app that is not the mega-production-app database. so it should work. but sometimes
+    it doesn't.
+
+</pre>
+</body>
+
+</html>
