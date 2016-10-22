@@ -175,8 +175,17 @@ Two uses of shake:
 
 4. database testing / postgres subset tool
 
+ - initial driving goal: we want to have a small database in our
+   CI that a run can mutate without affecting other CI stuff. (other approaches
+   to this are "do some state changes, then tidy yourself up afterwards")
+
+ - our big database takes on the order of 100G to store and hours to save/restore.
+    (mostly some indexes) - that's too much for a CI run that we want to happen
+    in minutes.
+
   - tool that didn't do what I want - take a big DB and
      output some subset of it that can be restored fast.
+
   - two kinds of fixpoints: SQL fixpoints - there is "expanding" sql fixpoint stuff but not "shrinking" style
                             Haskell mdo fixpoint - recursive value but need to grab information from other sources when doing it - from the config file for eg. overridden foreign keys, and from the database itself
   - url - "public" but no licence so you can't really use it. would like to fix that.
@@ -184,6 +193,22 @@ Two uses of shake:
     app that is not the mega-production-app database. so it should work. but sometimes
     it doesn't.
 
+  - what do we need to configure? what parts highlight a "smell" in database
+     definition? (fake foreign keys?)
+
+  - time related bugs x 2 - SQL clauses are mostly functional, but now() isn't.
+      noticed at the point where we had lots of records created very rapidyly
+      a month ago - so now() iterating was selecting a different subset every
+      time. would have converged eventually. but maybe to 0 and maybe after
+      running for a month...
+
+  - future - mutually recursive definitions (there was a bug with self-recursion
+     which I fixed, and this probably generalises to mutually recursive defs?)
+
+  - thinking about what mdo means helped me figure out what I think I should
+    be doing.
+
+  - actually all github bugs might be interesting to review?
 </pre>
 </body>
 
