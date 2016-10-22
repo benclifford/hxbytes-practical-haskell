@@ -18,10 +18,18 @@ TODO: highlight.js
 
 The environment when I arrived:
  * core haskell product built by Makefile and deployed via apt
- * python based projects - history of experimental data analysis rather 
+ * python based projects - history of experimental data analysis (researchy) rather 
    than production code. some of this needed to become production,
-   so wanted things like productible builds.
- * other projects appearing ad-hoc
+   so wanted things like productible builds rather than "well if I have exactly
+   my laptop it runs" (not a criticism - its a genuine different in dev
+   practice that needs interfacing)
+ * other projects appearing ad-hoc in various combinations of languages
+   - similar research prototype->production transitions need to be managed
+       - even from people who are professional programmers, rather than
+         PhDs
+
+what is shake? it's a library for writing build systems, rather than
+a command line tool called "shake".
 
 Note that this isn't intended to be some canonical use of Shake - 
 it's how it seemed to me to be a (not the) right way to do it.
@@ -41,8 +49,11 @@ Two uses of shake:
     - how it fits into Makefile - have to build shake each time or
        require it as a pre-req. this is cached though.
 
- * bigger use:
-    building everything.
+   -- extra feature - fast mode - different "function" that does the
+      same thing (cp vs min, gzip -1 vs zopfli)
+
+ * bigger use: buildosaurus.
+    building "everything".
     on the TODO list to do "something" for a long time, but
      catalyst was new junior sys admin starting and me having
      to explain our processes - I decided I'd rather write it
@@ -62,12 +73,46 @@ Two uses of shake:
      because we need a different compiler, for example, and
      we can version that together with the code that needs
      the different compiler (the monorepo part) and we can
-     build without too much redundancy
+     build without too much redundancy - this tool is helping us
+     do that!
+
+  catch all the bodges that we needed - eg not able to share
+    ~/.stack,ghc,ghcjs between two of our components so we
+    have to reroute; and makefile isn't expressive enough to
+    give single-target builds.
+    but now we have a codified place to describe those bodges
+     and work on them rather than it being folklore about
+      "oh delete your ~/.stack"
+
+  we can start with a machine with docker on it and checkout
+   repos, run a single build command, and it all builds (over
+    many hours)
+
+   TODO: a graph of all the components. parallelise with 
+    modern shake so we can see parallelism? clean build on
+    fresh AWS machine so no pollution
+
+  using caches from  other tools: docker cache, .stack cache
+    - these have different semantics - eg docker is content
+        based, and can cope with multiple versons in cache at
+       once, where shake's build directory approach is
+         "either you have the current version or its invalid
+          and we must rebuild". stack is slightly opaque and
+         misbehaving sometimes.
+
+  - oracles - what oracles implemented? review all
 
    test certifications - track which tests have run (at a
      big-chunk scale - because eg don't stand up a new DB every
-     
-     ) 
+     individual test )  
+       - test certification file is a file generated to
+          represent that the test passed - the "successful" output
+          of the tets. imagine an IO operation that returns ()
+          or errors. eithre you get the value because it passed
+          or you don't.
+
+ shake criticisms - enough changes happening that I still want to
+    pay attention to 'master' vs recent releases.
 
 3. ghcjs vs ghc
      - generally very good
