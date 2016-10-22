@@ -99,6 +99,7 @@ Two uses of shake:
          "either you have the current version or its invalid
           and we must rebuild". stack is slightly opaque and
          misbehaving sometimes.
+    - don't get to control those so much. (downside)
 
   - oracles - what oracles implemented? review all
 
@@ -110,22 +111,37 @@ Two uses of shake:
           of the tets. imagine an IO operation that returns ()
           or errors. eithre you get the value because it passed
           or you don't.
+      - can rebuild on things other than a source code change 
+           - eg against latest database snapshot. this is "nothing
+          special"  - just a regular dependency.
 
  shake criticisms - enough changes happening that I still want to
     pay attention to 'master' vs recent releases.
 
 3. ghcjs vs ghc
      - generally very good
-     - #ifdef build ickiness that I think can be
+`
+     - #ifdef build ickiness that I think can be almost
        entirely replaced - see my comment: 
        https://www.reddit.com/r/haskell/comments/56ucmt/how_do_you_structure_web_projects_that_share/d8n6xcj/
-         - Functor style types - an interesting variation on the "what text type to use?"
-         - poor use of #ifdef to simulate files.
+         - ocaml-Functor style types - an interesting variation on the "what text type to use?"
+              - that only needs to be in one place, because we are constraining this to be
+                parameterised over the whole build environment rather than mixing between
+                projects.
+             - actually have two different implementations of this, one in main app, one in
+                  a library. ugh.
+         - poor use of #ifdef to simulate files/modules/libraries.
 
      - move away from talking about a "frontend" and a "backend" - it's
        single application running in a distributed environment where
        some components have one runtime and others have a different runtime.
         - version together, code together.
+        - this works pretty well from my perspective (of disliking build being
+          broken rather than having to code against it)
+           . because we're in one language, we have type checked definition of
+           how stuff moves between pieces of the app, liek we have type
+           checked definition of how stuff moves between pieces of the app
+           when making function calls.
 
      - spock+json to communicate - *BUT* this is not an "API"
         - move to shoving haskell data values around that are "command" objects
@@ -143,6 +159,18 @@ Two uses of shake:
         - we talk to third party services like facebook/instagram, openstreetmap
         - python/haskell components communicate over HTTP
 )
+
+
+ - cabal configure step for ghcjs modules runs in js - so in node (like TH)
+    and so we call some of our preprocessing from in there as calls to Make
+    from ghcjs FFI running in node.js
+   (code sample here from the Setup.hs)
+   - note the #ifdef
+
+  - all these ifdefs hark back to writing multiplatform C code when I started as developer
+     - they're expressing a thing that the language (haskell or C) doesn't express well
+       so we need a DSL on the front of that to generate haskell appropriate for our 
+       platform.
 
 4. database testing / postgres subset tool
 
