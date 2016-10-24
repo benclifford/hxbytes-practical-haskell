@@ -1,21 +1,44 @@
 <html>
 
+
+<head>
+<title>Haskell Exchange Bytes October 2016</title>
+
+<link rel="stylesheet" href="highlight.js/styles/default.css">
+<script src="highlight.js/highlight.pack.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+
+<link rel="stylesheet" href="Slidy2/styles/slidy.css" type="text/css" />
+<script src="Slidy2/scripts/slidy.js" charset="utf-8" type="text/javascript"></script> 
+</head>
+
 <body>
 
-<pre>
-TODO: highlight.js
-</pre>
-
+<div class="slide">
 <pre>
 
 0. Cover slide for screen before talk: a "beautiful destination" picture chosen by neural net?
-
+</pre>
+</div>
+<div class="slide">
+<h1>Introduction</h1>
+<pre>
 1. Intro - me, BD. contact details.
  - not talk too much about BD specifically because my talk is more about the more general things I've encountered,
    though there will be some details about what we do in the talk because its not secret secret.
 
-2. describing existing processes in shake
+ - overview of three sections 
+     - shake
+     - ghc/ghcjs
+     - postgres database subsetting
+</pre>
 
+</div>
+
+<div class="slide">
+<h1>describing existing processes in shake</h1>
+
+<pre>
 The environment when I arrived:
  * core haskell product built by Makefile and deployed via apt
  * python based projects - history of experimental data analysis (researchy) rather 
@@ -117,8 +140,12 @@ Two uses of shake:
 
  shake criticisms - enough changes happening that I still want to
     pay attention to 'master' vs recent releases.
+</pre>
 
-3. ghcjs vs ghc
+</div>
+<div class="slide">
+<h1>ghcjs vs ghc</h1>
+<pre>
      - generally very good
 `
      - #ifdef build ickiness that I think can be almost
@@ -172,8 +199,12 @@ Two uses of shake:
      - they're expressing a thing that the language (haskell or C) doesn't express well
        so we need a DSL on the front of that to generate haskell appropriate for our 
        platform.
+</pre>
 
-4. database testing / postgres subset tool
+</div>
+<div class="slide">
+<h1>database testing / postgres subset tool</h1>
+<pre>
 
  - initial driving goal: we want to have a small database in our
    CI that a run can mutate without affecting other CI stuff. (other approaches
@@ -186,9 +217,11 @@ Two uses of shake:
   - tool that didn't do what I want - take a big DB and
      output some subset of it that can be restored fast.
 
-  - two kinds of fixpoints: SQL fixpoints - there is "expanding" sql fixpoint stuff but not "shrinking" style
+  - two kinds of fixpoints: SQL fixpoints - there is "expanding" sql fixpoint stuff but not "shrinking" style (I think?)
+                             .  see <a href="https://www.postgresql.org/docs/9.6/static/queries-with.html">WITH RECURSIVE</a>
+                             .  execution is similar, though - repeated iteration until some convergance criteria
                             Haskell mdo fixpoint - recursive value but need to grab information from other sources when doing it - from the config file for eg. overridden foreign keys, and from the database itself
-  - url - "public" but no licence so you can't really use it. would like to fix that.
+  - <a href="https://github.com/BeautifulDestinations/postgres-subset">github</a> - "public" but no licence so you can't really use it. would like to fix that.
   - database subsetting as testing tool: giving a different database to the
     app that is not the mega-production-app database. so it should work. but sometimes
     it doesn't.
@@ -210,6 +243,11 @@ Two uses of shake:
 
   - actually all github bugs might be interesting to review?
 </pre>
+</div>
+
+<div class="slide">
+<h1>fin</h1>
+</div>
 </body>
 
 </html>
