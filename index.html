@@ -61,7 +61,7 @@ Two uses of shake:
 
  *  the small one:
    took a small piece of the Makefile which was awkward and
-   replaced it with shake.
+   replaced it with shake, to do with ghcjs.
 
   TODO: show the old code
   What was awkward about this?
@@ -74,6 +74,11 @@ Two uses of shake:
 
    -- extra feature - fast mode - different "function" that does the
       same thing (cp vs min, gzip -1 vs zopfli)
+        -- and fast mode flag state is a build dependency, so
+           if it changes, we know to rebuild.
+         -- introduce oracles here as part of the "why"
+           - i think there was a name based reason why too to do
+             with hashes?
 
  * bigger use: buildosaurus.
     building "everything".
@@ -81,6 +86,8 @@ Two uses of shake:
      catalyst was new junior sys admin starting and me having
      to explain our processes - I decided I'd rather write it
      down in machine readable form rather than English.
+
+     and made confident by the smaller project...
 
     what are the kinds of things we're building?
       - debian packages
@@ -199,6 +206,10 @@ Two uses of shake:
      - they're expressing a thing that the language (haskell or C) doesn't express well
        so we need a DSL on the front of that to generate haskell appropriate for our 
        platform.
+
+  - build/deploy looks different for thge two platforms: in one we generate some exes and run them;
+       in the other we generate a bunch of javascript which needs postprocessing and
+       webserving. postprocessing, as mentioned in build system section, is a small piece of shake
 </pre>
 
 </div>
