@@ -29,7 +29,9 @@ https://www.instagram.com/beautifuldestinations/
 Beautiful Destinations - we're doing a lot of data science on images. I'm
 not going to talk much about that. More interested in more general topics.
 
- - overview of three sections 
+ - overview of three sections that are really only coupled
+   by the fact that I have worked on all three on the same
+   project
      - shake
      - ghc/ghcjs
      - postgres database subsetting
@@ -39,7 +41,7 @@ not going to talk much about that. More interested in more general topics.
 </div>
 
 <div class="slide">
-<h1>Shake</h1>
+<h1>1. Shake</h1>
 
 <pre>
 
@@ -225,10 +227,10 @@ compress compressedFilename = do
 </div>
 
 <div class="slide">
+<h1>Bigger: Buildosaurus</h1>
 <pre>
 
- * bigger use: buildosaurus.
-    building "everything".
+  *   building "everything".
     on the TODO list to do "something" for a long time, but
      catalyst was new junior sys admin starting and me having
      to explain our processes - I decided I'd rather write it
@@ -280,6 +282,16 @@ compress compressedFilename = do
 
   - oracles - what oracles implemented? review all
 
+<code class="haskell">
+  addOracle getFilteredDirectoryContentsOracle
+  addOracle alwaysValidateDockerImageOracle
+  addOracle getCommitIDOracle
+</code>
+
+
+  -- built as a regular stack project - multiple source files,
+     stack-managed dependencies
+
    test certifications - track which tests have run (at a
      big-chunk scale - because eg don't stand up a new DB every
      individual test )  
@@ -316,56 +328,115 @@ compress compressedFilename = do
 
 </div>
 <div class="slide">
-<h1>ghcjs vs ghc</h1>
+<h1>2. ghcjs vs ghc</h1>
+
+<ul>
+<li>Overall good experience but rough round edges</li>
+<li>Shared source code between frontend (in browser) and backend (on server)</li>
+<li>... but we've endedup with a lot of <code>#ifdef</code> ickiness</li>
+</ul>
+</div>
+<div class="slide">
+<h1>The good: Shared source code</h1>
+<ul>
+<li>Mostly shared data structures: representing our
+domain objects but also queries/commands</li>
+<li>Version this as a single application version
+(aka git commit ID) running in a distributed setting.</li>
+<li>
+Data structures shared between frontend and backend
+only need to work within that same version - that
+is type checked, like other data passed around inside
+an application</li>
+<li>Communication between halves is HTTP GET/POST + JSON,
+but that is not
+fundamental: most JSON is done by generics and
+we can probably replace that straightforwardly with
+any other internal serialisation protocol</li>
+
+</div>
+
+<div class="slide">
+<h1>The bad: Rough edges</h1>
+<ul>
+<li>We run our own patched ghcjs, for Template Haskell
+performance. It was unusably slow. <a href="https://github.com/ghcjs/ghcjs/issues/449">#449</a></li>
+<li>stack vs ghcjs doesn't version shared state correctly. Workaround in
+buildosaurus using Docker magic. <a href="https://github.com/commercialhaskell/stack/issues/2365">#2365</a></li>
+<li>Some days I seem to spend my whole day compiling ghcjs over and over</li>
+</ul>
+</div>
+
+
+<div class="slide">
+<h1>The Ugly: the <code>#ifdef</code> monster</h1>
+
+<p>Our <code>lib/</code> is riddled with
+<code>#ifdef</code>.</p>
+
+</div>
+
+<div class="slide">
+<h1>Cross platform string types: Text vs JSString</h1>
+
+<pre><code class="haskell">
+data Account = Account
+  { id              :: AccountId
+  , username        :: Text
+  } deriving Generic, FromJSON, ToJSON
+</code>
+</pre>
+but...
+<pre><code class="haskell">
+#ifndef __GHCJS__
+import Data.Text (Text)
+#else
+type Text = JSString
+#endif
+</code>
+</pre>
+</div>
+
+<div class="slide">
+<h1>The Ugly: the <code>#ifdef</code> monster</h1>
+<ul>
+<li>Text and other types: Int vs Integer, postgres
+structures that leak</li>
+<li>Poor simulation of files/modules/separate libraries
+    for historical reasons: eg no postgres, so #ifdef
+    away anything that talks about postgres on the
+    frontend side.</li>
+</ul>
+</div>
+<div class="slide">
+<h1>The WTF</h1>
+<ul>
+<li><code>cabal configure</code> for ghcjs runs in JavaScript.</li>
+<li>So in node.js (as does Template Haskell)
+<li>To call shell commands for preprocessing use ghcjs FFI from node.js</li>
+
+<pre><code class="haskell">
+#ifdef __GHCJS__
+import GHCJS.Types (JSString)
+import Data.JSString (pack)
+
+foreign import javascript unsafe "var e = require('child_process').execSync;
+                                  var cmd = 'cpp -P < ' + $1 + ' > ' + $2; e(cmd);"
+  cpp :: JSString -> JSString -> IO ()
+
+main = do
+  cpp (pack "jsbits/fast-renderer.js") (pack "jsbits/fast-renderer.out.js")
+  defaultMain
+#endif
+
+</code>
+</pre>
+</div>
+
+<div class="slide">
 <pre>
-     - generally very good
-`
-     - #ifdef build ickiness that I think can be almost
-       entirely replaced - see my comment: 
-       https://www.reddit.com/r/haskell/comments/56ucmt/how_do_you_structure_web_projects_that_share/d8n6xcj/
-         - ocaml-Functor style types - an interesting variation on the "what text type to use?"
-              - that only needs to be in one place, because we are constraining this to be
-                parameterised over the whole build environment rather than mixing between
-                projects.
-             - actually have two different implementations of this, one in main app, one in
-                  a library. ugh.
-         - poor use of #ifdef to simulate files/modules/libraries.
+
          - config/package language not expressive enough (see later)
-
-     - move away from talking about a "frontend" and a "backend" - it's
-       single application running in a distributed environment where
-       some components have one runtime and others have a different runtime.
-        - version together, code together.
-        - this works pretty well from my perspective (of disliking build being
-          broken rather than having to code against it)
-           . because we're in one language, we have type checked definition of
-           how stuff moves between pieces of the app, liek we have type
-           checked definition of how stuff moves between pieces of the app
-           when making function calls.
-
-     - spock+json to communicate - *BUT* this is not an "API"
-        - move to shoving haskell data values around that are "command" objects
-       . we serialise to JSON but
-       we could serialise to anything. JSON is historical and
-       I don't personally feel a huge pressure to move away from
-       but it's not a core thing: most of our JSON is derive Generic,
-       and we could derive another format.
-       There is no "API" spec - these are communications within the
-         same version of the app and by definition (or by type checking ;)
-         will work together.
-
-(aside:
-     - separately there's a lot of REST-ish API interactions: 
-        - we talk to third party services like facebook/instagram, openstreetmap
-        - python/haskell components communicate over HTTP
-)
-
-
- - cabal configure step for ghcjs modules runs in js - so in node (like TH)
-    and so we call some of our preprocessing from in there as calls to Make
-    from ghcjs FFI running in node.js
-   (code sample here from the Setup.hs)
-   - note the #ifdef
 
   - all these ifdefs hark back to writing multiplatform C code when I started as developer
      - they're expressing a thing that the language (haskell or C) doesn't express well
@@ -379,7 +450,7 @@ compress compressedFilename = do
 
 </div>
 <div class="slide">
-<h1>database testing / postgres subset tool</h1>
+<h1>3. database testing / postgres subset tool</h1>
 <pre>
 
  - initial driving goal: we want to have a small database in our
