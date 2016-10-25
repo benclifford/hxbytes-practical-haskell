@@ -41,9 +41,9 @@ subject of this talk.
 <h1>1. Shake</h1>
 
 <p>Shake is a library for building build systems, in Haskell - not a
-commandline tool called <code>shake</code></p>
+commandline tool like <code>make</code></p>
 <p>Build systems build your code - <code>stack</code> is a simple
-example, for Haskell code only</p>
+example, that only knows about Haskell code</p>
 <p>Shake build systems are not limited to Haskell... In our case:
 <ul>
   <li>Haskell code in GHC/GHCJS</li>
@@ -65,11 +65,12 @@ example, for Haskell code only</p>
 <div class="slide">
 <h1>Small use of shake: Before</h1>
 
-<p>Makefile based build system</p>
+<p>Makefile based build for our main Haskell build</p>
 <p>Make likes things to be very file oriented: here
 is <code>a.o</code>, build it from <code>a.c</code>.
 <p>Or, targets that always run - when you can't
 express dependencies as files.</p>
+<p>Or weird multi-stage things.</p>
 </div>
 <div class="slide">
 <h1>Small use of shake: Before</h1>
@@ -109,7 +110,7 @@ must always happen:
 </div>
 
 <div class="slide">
-<h1>Small use of Shake: Now</h1>
+<h1>Small use of shake: Now</h1>
 <p>Makefile builds and calls a shake program:</p>
 <pre><code class="makefile">frontpack: frontbuild
         (cd $(JSDIR) && rm -fv hash_*)
@@ -127,8 +128,7 @@ must always happen:
 
 <div class="slide">
 <h1><code>BuildMinified.hs</code>: top level</h1>
-<pre><code class="haskell">want
-         [ jsdir &lt;/> "all.css"
+<pre><code class="haskell">want     [ jsdir &lt;/> "all.css"
          , jsdir &lt;/> "all.css.gz"
          , jsdir &lt;/> "all.min.js"
          , jsdir &lt;/> "all.min.js.gz"
@@ -147,15 +147,15 @@ must always happen:
 <h1><code>BuildMinified.hs</code>: helper functions</h1>
 <pre><code class="haskell">combineCSS jsdir outFilename = do
   let cssDir = "public/platform"
-  cssFiles <- getDirectoryFiles cssDir ["//*.css"] -- DEPENDENCY ON DIRECTORY
-  let fullCssFiles = (cssDir </>) <$> cssFiles
+  cssFiles &lt;- getDirectoryFiles cssDir ["//*.css"] -- DEPENDENCY ON DIRECTORY
+  let fullCssFiles = (cssDir &lt;/>) &lt;$> cssFiles
   need fullCssFiles -- DEPENDENCY ON GENERATED LIST OF FILES
   combineFiles fullCssFiles outFilename
 
 compress compressedFilename = do
-  let uncompressedFilename = compressedFilename -<.> ""
+  let uncompressedFilename = compressedFilename -&lt;.> ""
   need [uncompressedFilename] -- DEPENDENCY ON FILE (LIKE make)
-  f <- isFast -- DEPENDENCY ON COMMANDLINE FLAG (ORACLE)
+  f &lt;- isFast -- DEPENDENCY ON COMMANDLINE FLAG (ORACLE)
   if f
     then cmd $ "gzip --keep --force -1 " ++ uncompressedFilename
     else cmd $ "zopfli -i10 " ++ uncompressedFilename
@@ -184,7 +184,9 @@ for me to explain how it all fitted together...</p>
 <h1>Bigger shake: Buildosaurus</h1>
 <p>Rather than explain everything to new sysadmin
 or write it down in prose which would rot,
-write the instructions in machine readable form.
+write the instructions in machine readable form
+that would be used for real CI builds and so be
+maintained.
 </p>
 <p><code>buildosaurus</code> - a shake-based
 program which knows how to build all of our software
@@ -208,6 +210,7 @@ fixed but they are described.
 <div class="slide">
 <h1>Buildosaurus: implementation</h1>
 <ul>
+<li>Looks more like an "application" than a "script"
 <li>stack-based project: multiple source files, can use hackage libraries</li>
 <li>Co-ordinate existing tools for building and
 packaging: stack, docker, dpkg. Not
@@ -235,20 +238,14 @@ addOracle getCommitIDOracle
 <pre><code class="haskell">
 getCommitIDOracle :: GetCommitID -> Action GitCommitID
 getCommitIDOracle (GetCommitID ()) = do
-  cmdfile <- getTempFilename
-  writeCmdFile cmdfile [
-      "#!/bin/bash"
-    , "git rev-parse HEAD"
-    ]
-
-  (Stdout commit_id') <- cmd cmdfile
+  (Stdout commit_id') <- cmd "git rev-parse HEAD"
   let commit_id = stripString commit_id'
   return commit_id
 </code></pre>
 </div>
 
 <div class="slide">
-<h1>Test certifications</h1>
+<h1>Buildosaurus: Test certifications</h1>
 <ul>
 <li>Track which test suites have run as build artefacts - the
 output of a test suite is a certification that the
