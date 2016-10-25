@@ -155,7 +155,7 @@ must always happen:
 compress compressedFilename = do
   let uncompressedFilename = compressedFilename -<.> ""
   need [uncompressedFilename] -- DEPENDENCY ON FILE (LIKE make)
-  f <- isFast -- DEPENDENCY ON COMMANDLINE FLAG
+  f <- isFast -- DEPENDENCY ON COMMANDLINE FLAG (ORACLE)
   if f
     then cmd $ "gzip --keep --force -1 " ++ uncompressedFilename
     else cmd $ "zopfli -i10 " ++ uncompressedFilename
@@ -164,33 +164,127 @@ compress compressedFilename = do
 </div>
 
 <div class="slide">
-<h1>Bigger: Buildosaurus</h1>
+<h1>Bigger shake: Buildosaurus</h1>
+<p>Build "everything"</p>
+<p>Collection of end products and intermediate
+stages that build them: docker images for building,
+docker images for deployment, debian packages,
+and test cases.
+</p>
+<p>Before:</p>
+<p>Lots of ad-hoc scripts spread in tooling
+git repository and in CI system.</p>
+<p>Lots of weird bodges/secret knowledge: what tools
+to run in which order; tooling bug workarounds</p>
+<p>And then we got a junior sysadmin and it was time
+for me to explain how it all fitted together...</p>
+</div>
+
+<div class="slide">
+<h1>Bigger shake: Buildosaurus</h1>
+<p>Rather than explain everything to new sysadmin
+or write it down in prose which would rot,
+write the instructions in machine readable form.
+</p>
+<p><code>buildosaurus</code> - a shake-based
+program which knows how to build all of our software
+starting at a clean Linux+docker install and a git checkout.
+</p>
+</div>
+
+<div class="slide">
+<h1>Buildosaurus: Payoffs</h1>
+<ul>
+<li>devs can more easily build ~production system, which
+they never did before</li>
+<li>Version control of build system - as part of move to
+monorepo</li>
+<li>Take Haskell functions to do useful build steps and
+repurpose - eg "give me a disposable database" command</li>
+<li>Our build bodges+niggles are written down: the bodges aren't
+fixed but they are described.
+</div>
+
+<div class="slide">
+<h1>Buildosaurus: implementation</h1>
+<ul>
+<li>stack-based project: multiple source files, can use hackage libraries</li>
+<li>Co-ordinate existing tools for building and
+packaging: stack, docker, dpkg. Not
+re-implementing their existing dependency and
+caching behaviour.
+</li>
+</ul>
+</div>
+
+<div class="slide">
+<h1>Buildosaurus: oracles</h1>
+<p>Oracles allow builds to depend on extra information</p>
+<p>Commandline flag in small use case</p>
+<pre><code class="haskell">addOracle getFilteredDirectoryContentsOracle
+addOracle alwaysValidateDockerImageOracle
+addOracle getCommitIDOracle
+</code></pre>
+</div>
+
+<div class="slide">
+<h1>Buildosaurus: getCommitIDOracle</h1>
+<p>This lets us depend on the git commit ID of the current
+   checkout, which might change even though relevant files don't.</p>
+
+<pre><code class="haskell">
+getCommitIDOracle :: GetCommitID -> Action GitCommitID
+getCommitIDOracle (GetCommitID ()) = do
+  cmdfile <- getTempFilename
+  writeCmdFile cmdfile [
+      "#!/bin/bash"
+    , "git rev-parse HEAD"
+    ]
+
+  (Stdout commit_id') <- cmd cmdfile
+  let commit_id = stripString commit_id'
+  return commit_id
+</code></pre>
+</div>
+
+<div class="slide">
+<h1>Test certifications</h1>
+<ul>
+<li>Track which test suites have run as build artefacts - the
+output of a test suite is a certification that the
+test suite ran (actually just an empty file ~ <code>()</code>)</li>
+<li>Know which test suites need re-running - regular build
+dependencies - rather than running all tests every time</li>
+<li>Can depend on things other than source files easily:
+eg test data files, git version.
+</li>
+</div>
+
+
+<div class="slide">
+<h1>shake: downsides</h1>
+<ul>
+
+<li>sysadmins have to learn "some" Haskell</li>
+
+<li>enough changes happening in shake that I still want to
+    pay attention to 'master' vs recent releases.
+</li>
+
+<li>need more infrastructure in place (eg stack)
+    to build, which is a bit of a chicken-and-egg
+    situation because I want buildosaurus to be
+    managing things like that.
+</li>
+
+<li>simple stuff feels much more verbose.
+   (but complex stuff feels much simpler / actually
+    expressable)</li>
+</pre>
+
+</div>
+<div class="slide">
 <pre>
-
-  *   building "everything".
-    on the TODO list to do "something" for a long time, but
-     catalyst was new junior sys admin starting and me having
-     to explain our processes - I decided I'd rather write it
-     down in machine readable form rather than English.
-
-     and made confident by the smaller project...
-
-    what are the kinds of things we're building?
-      - debian packages
-      - docker images
-      - test "certifications" - describe this later
-
-    this only happened in the last few weeks. payoffs so far:
-      devs can build "official" style production releases on
-      their machines. can re-use parts of CI/production infrastrucutre
-      to stand up fuller test environments on their local
-      machines.
-   part of move towards a mono-repo -  change some docker file
-     because we need a different compiler, for example, and
-     we can version that together with the code that needs
-     the different compiler (the monorepo part) and we can
-     build without too much redundancy - this tool is helping us
-     do that!
 
   catch all the bodges that we needed - eg not able to share
     ~/.stack,ghc,ghcjs between two of our components so we
@@ -199,10 +293,6 @@ compress compressedFilename = do
     but now we have a codified place to describe those bodges
      and work on them rather than it being folklore about
       "oh delete your ~/.stack"
-
-  we can start with a machine with docker on it and checkout
-   repos, run a single build command, and it all builds (over
-    many hours)
 
    TODO: a graph of all the components. parallelise with 
     modern shake so we can see parallelism? clean build on
@@ -217,53 +307,9 @@ compress compressedFilename = do
          misbehaving sometimes.
     - don't get to control those so much. (downside)
 
-  - oracles - what oracles implemented? review all
-
-<code class="haskell">
-  addOracle getFilteredDirectoryContentsOracle
-  addOracle alwaysValidateDockerImageOracle
-  addOracle getCommitIDOracle
-</code>
-
-
-  -- built as a regular stack project - multiple source files,
-     stack-managed dependencies
-
-   test certifications - track which tests have run (at a
-     big-chunk scale - because eg don't stand up a new DB every
-     individual test )  
-       - test certification file is a file generated to
-          represent that the test passed - the "successful" output
-          of the tets. imagine an IO operation that returns ()
-          or errors. eithre you get the value because it passed
-          or you don't.
-      - can rebuild on things other than a source code change 
-           - eg against latest database snapshot. this is "nothing
-          special"  - just a regular dependency.
-
 </pre>
 </div>
 
-<div class="slide">
-<h1>downsides</h1>
-
-<pre>
- - ops people have to learn "some" Haskell
-
- - enough changes happening that I still want to
-    pay attention to 'master' vs recent releases.
-
- - need a bit more infrastructure in place (eg stack)
-    to build, which is a bit of a chicken-and-egg
-    situation because I want buildosaurus to be
-    managing things like that.
-
- - simple stuff feels much more verbose.
-   (but complex stuff feels much simpler / actually
-    expressable)
-</pre>
-
-</div>
 <div class="slide">
 <h1>2. ghcjs vs ghc</h1>
 
