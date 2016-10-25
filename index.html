@@ -378,6 +378,7 @@ type Text = JSString
 #endif
 </code>
 </pre>
+<p>Works cross platform because of JSON magic</p>
 </div>
 
 <div class="slide">
@@ -434,94 +435,92 @@ main = do
 </div>
 <div class="slide">
 <h1>3. postgres-subset tool / database testing</h1>
+<ul>
+<li>Wanted to test application against database, in CI.</li>
 
-<p>Wanted to do database testing in CI.</p>
+<li>Against real database: can do read-only tests, as long as schemas are compatible.
+ Broken tests for old branches. No database write tests.</li>
 
-<p>Haven't come across a tool that did what I wanted
+<li>Our production database is too big to cheaply clone per-job (100Gb, several hours)</li>
+
+<li>Want a small but non-trivial testing database</li>
+<li>... eg a subset of our production database, created relatively fast</li>
+<li>Couldn't find a tool that did what I wanted
 (which surprised me a bit because I don't think it is
- that obscure)</p>
-
-<pre>
+ that obscure) so I wrote one</li>
+</ul>
  
- - initial driving goal: we want to have a small database in our
-   CI that a run can mutate without affecting other CI stuff. (other approaches
-   to this are "do some state changes, then tidy yourself up afterwards")
-
- - our big database takes on the order of 100G to store and hours to save/restore.
-    (mostly some indexes) - that's too much for a CI run that we want to happen
-    in minutes.
-
-  - tool that didn't do what I want - take a big DB and
-     output some subset of it that can be restored fast.
-</pre>
-
 </div>
 <div class="slide">
-<h1>The problem</h1>
+<h1><code>postgres-subset</code></h1>
 <p>
-Export a subset of tables based on some configuration. eg recent posts:
-</p>
-
+Export a subset of a table eg recent posts:
 <pre><code class="sql">SELECT * FROM posts WHERE created_at > now() - interval '2 months'
 </code></pre>
+</p>
 
-<p>... but other tables might use <code>posts</code> in a foreign key.</p>
-<p>Can't export tables individually - where there is a foreign key, we
+<p>But can't export tables individually - where there is a foreign key, we
 only export rows which are still valid given choices made in upstream tables.</p>
+<p>Generate <code>SELECT</code> statements based on:
+<ul>
+<li>Explicit shrinking spec in configuration file (<code>tables.yaml</code>)
+<pre><code class="yaml"> - posts:
+     shrink: "created_at > now() - interval '2 months'"
+</code></pre>
+<li>Implicit shrinking caused by foreign key table being shrunk</li>
+</ul>
 
 </div>
 
 <div class="slide">
 <h1>Fixpoints in SQL</h1>
+<ul>
+<li>But tables can have foreign keys on themselves:
+eg image table that represents "is thumbnail of" relation</li>
 
-<p>... but that isn't enough, because
-tables can have foreign keys on themselves.</p>
+<li>Iterately shrink a table until we reach a fixpoint - the output
+of the shrinking is the same as the input. (= the number of
+rows remains stable)</li>
 
-<p>eg image table that represents "is thumbnail of" relation</p>
-
-<p>Iterately shrink table until we reach a fixpoint.</p>
-
-<p>SQL has <code><a href="https://www.postgresql.org/docs/9.6/static/queries-with.html">WITH RECURSIVE</a></code> which can find fixpoints when
+<li>SQL has <code><a href="https://www.postgresql.org/docs/9.6/static/queries-with.html">WITH RECURSIVE</a></code> which can find fixpoints when
 expanding data, but not when shrinking data. So implemented iteration
-in Haskell.</p>
+in Haskell.</li>
 
-<p>But even this might not be enough (it is for our database though)
+<li>But even this might not be enough (it is for our database though)
 because there might be a mutually recursive group of tables, that need
-to be iteratively shrunk all together.</p>
+to be iteratively shrunk all together.</li>
 
 </div>
 
 <div class="slide">
-<h1>use in testing</h1>
+<h1>Use in testing</h1>
 <ul>
-<li>easy standup of throwaway (mutable) database with fairly
+<li>Easy standup of throwaway (mutable) database with fairly
 realistic data (because it is extracted from real data)
 </li>
-<li>
-what do we need to configure? what parts highlight a "smell" in database
-definition? (fake foreign keys? what aren't they defined in the schema?)</li>
+<li>Small enough to have lots of versions round - can keep old
+one for old branches, and label with git commit IDs of schema</li>
 
-<li>giving a different database to the
-    app that is not the mega-production-app database. so it should work. but sometimes
-    it doesn't. what was wrong? bug in schema definition again? bug in
-    application code that is highlighted by being used against a slightly
-    different but valid database? </li>
+<li>Giving a different database to the app sometimes finds bugs
+(in the schema or the code).
+</li>
+
+<li>postgres-subset lets you specify addition "fake" foreign keys,
+but these are a "smell" that suggests that there is something
+wrong in the schema</li>
 
 </ul>
 
 </div>
 <div class="slide">
-<h1>bugs</h1>
+<h1>Bugs</h1>
 
 <ul>
-
-<li> time related bugs  - SQL clauses are mostly functional, but now() isn't.
-      noticed at the point where we had lots of records created very rapidyly
-      a month ago - so now() iterating was selecting a different subset every
-      time. would have converged eventually. but maybe to 0 and maybe after
-      running for a month...
-
-       - pretty straightforward IO vs pure problem 
+<li> time related bugs  - SQL clauses are mostly functional, but <code>now()</code> isn't.
+As we iterate, <code>now()</code> changes its value, and so we might keep shrinking a
+table forever, if we don't catch up. Or at least, keep shrinking until there are
+0 records left, a month later (!).</li>
+<li>Easy to understand as an IO vs pure problem.</p>
 </li>
 
 <li> race condition between tables being dumped 
