@@ -506,16 +506,14 @@ in Haskell.</p>
 because there might be a mutually recursive group of tables, that need
 to be iteratively shrunk all together.</p>
 
-<pre>
-
-                            Haskell mdo fixpoint - recursive value but need to grab information from other sources when doing it - from the config file for eg. overridden foreign keys, and from the database itself
-
-</pre>
-
 </div>
+
 <div class="slide">
 <h1>use in testing</h1>
 <ul>
+<li>easy standup of throwaway (mutable) database with fairly
+realistic data (because it is extracted from real data)
+</li>
 <li>
 what do we need to configure? what parts highlight a "smell" in database
 definition? (fake foreign keys? what aren't they defined in the schema?)</li>
