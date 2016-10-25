@@ -15,109 +15,65 @@
 <body>
 
 <div class="slide">
-<pre>
+<h1>start</h1>
+<ul>
+<li>Ben Clifford</li>
+<li>benc@hawaga.org.uk</li>
+<li><a href="https://www.instagram.com/beautifuldestinations/">BeautifulDestinations</a></li>
 
-0. TODO Cover slide for screen before talk: a "beautiful destination" picture chosen by neural net?
-
-https://www.instagram.com/beautifuldestinations/
-
-</pre>
 </div>
 <div class="slide">
 <h1>Introduction</h1>
-<pre>
-Beautiful Destinations - we're doing a lot of data science on images. I'm
-not going to talk much about that. More interested in more general topics.
-
- - overview of three sections that are really only coupled
-   by the fact that I have worked on all three on the same
-   project
-     - shake
-     - ghc/ghcjs
-     - postgres database subsetting
-
-</pre>
+<p>
+Beautiful Destinations - we're doing a lot of data science on images. Not the
+subject of this talk.
+</p>
+<p>Three loosely coupled sections:</p>
+<ul>
+ <li>shake</li>
+ <li>ghc/ghcjs</li>
+ <li>postgres database subsetting</li>
+</ul>
 
 </div>
 
 <div class="slide">
 <h1>1. Shake</h1>
 
-<pre>
-
-* describing existing processes in shake
-
-The environment when I arrived:
- * core haskell product built by Makefile and deployed via apt
- * python based projects - history of experimental data analysis (researchy) rather 
-   than production code. some of this needed to become production,
-   so wanted things like productible builds rather than "well if I have exactly
-   my laptop it runs" (not a criticism - its a genuine different in dev
-   practice that needs interfacing)
- * other projects appearing ad-hoc in various combinations of languages
-   - similar research prototype->production transitions need to be managed
-       - even from people who are professional programmers, rather than
-         PhDs
-
-Move to scripting this a bit more - ended up with a pile of scripts
-but you still had to know what to run and in which order.
-
-</pre>
-
+<p>Shake is a library for building build systems, in Haskell - not a
+commandline tool called <code>shake</code></p>
+<p>Build systems build your code - <code>stack</code> is a simple
+example, for Haskell code only</p>
+<p>Shake build systems are not limited to Haskell... In our case:
+<ul>
+  <li>Haskell code in GHC/GHCJS</li>
+  <li>css/javascript processing</li>
+  <li>Debian packages</li>
+  <li>Docker images containing our basic environments</li>
+  <li>Docker images containing our Python analytics components</li>
+</ul>
 </div>
 
 <div class="slide">
-
-<pre>
-what is shake? it's a library for writing build systems, rather than
-a command line tool called "shake".
-
-Note that this isn't intended to be some canonical use of Shake - 
-it's how it seemed to me to be a (not the) right way to do it.
-</pre>
-
+<h1>Two uses of shake</h1>
+<ul>
+ <li>the small one</li>
+ <li>the big one</li>
+</ul>
 </div>
 
 <div class="slide">
-<pre>
-Two uses of shake in this project:
+<h1>Small use of shake: Before</h1>
 
- * the small one
- * the big one
-</pre>
+<p>Makefile based build system</p>
+<p>Make likes things to be very file oriented: here
+is <code>a.o</code>, build it from <code>a.c</code>.
+<p>Or, targets that always run - when you can't
+express dependencies as files.</p>
 </div>
-
 <div class="slide">
-<h1>Initial small use</h1>
-
-
-<pre>
-Before:
-
-Makefile based build system, but make doesn't fit
-stack built Haskell well at all.
-
-Make is very file-oriented: here is a .c file, and
-here is a corresponding .o file.
-
-Or you can have targets which always run - because
-Make can't understand the file structure enough. So
-most of our Makefile consists of that: dependencies to
-run commands in order, but always running them.
-
-Stack manages to not take a lot of time so that bit isn't
-too painful.
-
-but post-processing ghcjs output was.
-
-</pre>
-
-<pre>
-This takes several minutes:
-
-Something like this: (not quite exact)
-
-<code class="makefile">
+<h1>Small use of shake: Before</h1>
+<pre><code class="makefile">
 frontpack: frontbuild
         (cd $(JSDIR) && rm -f hash_*)
         (cd $(JSDIR) && cat rts.js lib.js out.js > all.js)
@@ -133,31 +89,29 @@ frontpack: frontbuild
         echo JSHASH=$(JSHASH)
         (cd $(JSDIR) && cp all.min.js.gz hash_$(JSHASH).js.gz)
         (cd $(JSDIR) && cp all.min.js hash_$(JSHASH).js)
-
 </code>
 </pre>
-
-<pre>
-
-What couldn't we express in Make that we can express in shake?
-   - we combine *all* the css files in a directory. this doesn't
-     look like "here are some input files and an output file"
-
-
-Maybe shake can help?
- Hadn't used it before - didn't want to embark on rewriting
-whole makefile. Almost didn't use shake but was going to start
-going interesting scripting to do similar stuff.
+</div>
+<div class="slide">
+<h1>Small use of shake: Before</h1>
+<p>What can't we express?</p>
+<p>This depends on all of the css files, and also depends on
+   which CSS files exist: if either changes, need to rebuild.
+<pre><code class="makefile">(find public/platform/ -name '*.css' -exec cat {} \; \
+           > $(JSDIR)/all.css)
+</code>
 </pre>
-
+</p>
+<p>And because <code>all.css</code> is always rebuilt, expensive post-processing
+must always happen:
+<pre><code class="makefile"> (cd $(JSDIR) && zopfli -i10 all.css)</code></pre>
+<p>Maybe shake can help?</p>
 </div>
 
 <div class="slide">
-<h1>Now:</h1>
-<pre>
-Makefile now buids and calls shake:
-<code class="makefile">
-frontpack: frontbuild
+<h1>Small use of Shake: Now</h1>
+<p>Makefile builds and calls a shake program:</p>
+<pre><code class="makefile">frontpack: frontbuild
         (cd $(JSDIR) && rm -fv hash_*)
         stack build shake
         stack exec -- runhaskell shake/BuildMinified.hs -j2 --jsdir=$(JSDIR) ${SHAKEOPTS}
@@ -172,53 +126,36 @@ frontpack: frontbuild
 </div>
 
 <div class="slide">
-<h1>BuildMinified.hs</h1>
-<pre>
-Now have build rules in BuildMinified.hs
-
-More verbose, programmy rather than scripty.
-
-Show a few excerpts
-</pre>
-
-</div>
-
-<div class="slide">
-<h1>top level</h1>
-<pre><code class="haskell">
-  want
+<h1><code>BuildMinified.hs</code>: top level</h1>
+<pre><code class="haskell">want
          [ jsdir &lt;/> "all.css"
          , jsdir &lt;/> "all.css.gz"
          , jsdir &lt;/> "all.min.js"
          , jsdir &lt;/> "all.min.js.gz"
          ]
 
-  "//*.min.js" %> minify
-  "//*.gz" %> compress
-  -- NO DEPENDENCIES WRITTEN HERE!
+"//*.min.js" %> minify
+"//*.gz" %> compress
+-- NO DEPENDENCIES WRITTEN HERE!
 
-  (jsdir &lt;/> "all.js") %> combineJS jsdir
-  (jsdir &lt;/> "all.css") %> combineCSS jsdir 
-  -- OR HERE!
+(jsdir &lt;/> "all.js") %> combineJS jsdir
+(jsdir &lt;/> "all.css") %> combineCSS jsdir 
+-- OR HERE!
 </code></pre></div>
 
 <div class="slide">
-<h1>helper functions</h1>
-<pre><code class="haskell">
-
-combineCSS jsdir outFilename = do
+<h1><code>BuildMinified.hs</code>: helper functions</h1>
+<pre><code class="haskell">combineCSS jsdir outFilename = do
   let cssDir = "public/platform"
-  cssFiles <- getDirectoryFiles cssDir ["//*.css"]
-  -- DEPENDENCY HERE! dependency isn't a file. Rebuild if list changes
+  cssFiles <- getDirectoryFiles cssDir ["//*.css"] -- DEPENDENCY ON DIRECTORY
   let fullCssFiles = (cssDir </>) <$> cssFiles
-  need fullCssFiles 
-  -- DEPENDENCY HERE! files, but list is built at runtime. Rebuild if any change.
+  need fullCssFiles -- DEPENDENCY ON GENERATED LIST OF FILES
   combineFiles fullCssFiles outFilename
 
 compress compressedFilename = do
   let uncompressedFilename = compressedFilename -<.> ""
-  need [uncompressedFilename] -- DEPENDENCY ON FILE
-  f <- isFast -- DEPENDENCY HERE: This isn't even a disk artefact! Rebuild if flags change. Oracles!
+  need [uncompressedFilename] -- DEPENDENCY ON FILE (LIKE make)
+  f <- isFast -- DEPENDENCY ON COMMANDLINE FLAG
   if f
     then cmd $ "gzip --keep --force -1 " ++ uncompressedFilename
     else cmd $ "zopfli -i10 " ++ uncompressedFilename
